@@ -17,6 +17,7 @@ from druploy.database import *
 from druploy.files import *
 from druploy.domain import *
 
+env.use_ssh_config = True
 env.forward_agent = True
 
 env.local_path = os.path.dirname(os.path.realpath(__file__))
@@ -185,34 +186,48 @@ def files(updating=True, resetting=False):
                 env.source_files = UpdateFromServerFilesSource(env.source_deployment)
             elif resetting == 'True':
                 env.source_files = ResetToSnapshotFilesSource(env.source_deployment)
-    except AttributeError, e:
+    except AttributeError:
         Utils.error("Source deployment not initialized properly, could not collect files")
-    except AgileProjectError, e:
+    except AgileProjectError:
         Utils.error("Could not collect files")
         abort("Ending")
 
 
 @task
-def deploy(name=None):
+def deployment(name=None):
     """
-    Run the deployment on the configured code, files and database
+    Tell Druploy what deployment to use.
     """
     execute(init)
     try:
         with hide(*env.clean):
+            # default name to branch name
+            if name is None:
+                name = env.source_code.branch
             env.deployment = ManagedDeployment(env.project, name)
             ManagedDeployment.create(env.deployment)
+    except AgileProjectError:
+        Utils.error("Error")
 
+
+@task
+def deploy():
+    """
+    Deploy using the configured code, files, database, and deployment.
+    """
+    execute(init)
+    try:
+        with hide(*env.clean):
+            if env.deployment is None:
+                deployment(None)
             env.deployment.code.source = env.source_code
             env.deployment.code.destination = CodeDeploymentDestination(env.deployment)
             env.deployment.files.source = env.source_files
             env.deployment.files.destination = FilesDestination(env.deployment)
             env.deployment.database.source = env.source_database
             env.deployment.database.destination = DatabaseDeploymentDestination(env.deployment)
-
             env.deployment.run()
-
-    except AgileProjectError, e:
+    except AgileProjectError:
         Utils.error("Could not deploy, ending")
         raise
 
@@ -225,12 +240,13 @@ def domain(name=None, aliases=[]):
     execute(init)
     try:
         with hide(*env.clean):
+            print(env.deployment)
             env.domain = Domain(env.deployment, name, aliases)
             env.domain.create()
             env.domain.enable()
-    except AttributeError, e:
+    except AttributeError:
         Utils.error("Source deployment not initialized properly, could not enable")
-    except AgileProjectError, e:
+    except AgileProjectError:
         Utils.error("Could not enable domain")
         abort("Ending")
 
@@ -253,8 +269,6 @@ def drush_alias_create():
                 drush_alias = DrushAlias(drupal_root)
                 DrushAlias.create(drush_alias)
 
-    except AgileProjectError, e:
+    except AgileProjectError:
         Utils.error("Could not sync aliases")
         raise
-
-
