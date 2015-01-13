@@ -50,7 +50,7 @@ class Project(object):
         raise TypeError("{0} projects cannot be deleted".format(self.project_type))
 
     def archive(self, prompt=True):
-        raise TypeErrror("{0} projects cannot be archived".format(self.project_type))
+        raise TypeError("{0} projects cannot be archived".format(self.project_type))
 
     def validate(self):
         return True
